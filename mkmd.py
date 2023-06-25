@@ -1,16 +1,9 @@
-import os
-import io
-import sys
-import time
-import arxiv
-import openai
-import random
-import fitz
-from xml.dom import minidom
-import xmltodict
-import dicttoxml
-import json
 import glob
+import io
+import os
+import time
+
+import fitz
 import xmltodict
 from PIL import Image
 
@@ -18,6 +11,7 @@ print(fitz.__doc__)
 
 if not tuple(map(int, fitz.version[0].split("."))) >= (1, 18, 18):
     raise SystemExit("require PyMuPDF v1.18.18+")
+
 
 def recoverpix(doc, item):
     xref = item[0]  # xref of PDF image
@@ -59,12 +53,14 @@ def recoverpix(doc, item):
     return doc.extract_image(xref)
 
 
-def extract_images_from_pdf(fname, imgdir="./output", min_width=400, min_height=400, relsize=0.05, abssize=2048, max_ratio=8, max_num=5):
-    '''
+def extract_images_from_pdf(
+    fname, imgdir="./output", min_width=400, min_height=400, relsize=0.05, abssize=2048, max_ratio=8, max_num=5
+):
+    """
     dimlimit = 0  # 100  # each image side must be greater than this
     relsize = 0  # 0.05  # image : image size ratio must be larger than this (5%)
     abssize = 0  # 2048  # absolute image size limit 2 KB: ignore if smaller
-    '''
+    """
 
     if not os.path.exists(imgdir):  # make subfolder if necessary
         os.mkdir(imgdir)
@@ -98,15 +94,15 @@ def extract_images_from_pdf(fname, imgdir="./output", min_width=400, min_height=
             if len(imgdata) <= abssize:
                 continue
 
-            if width / height > max_ratio or height/width > max_ratio:
+            if width / height > max_ratio or height / width > max_ratio:
                 print(f"max_ration {width/height} {height/width} {max_ratio}")
                 continue
 
             print("*")
 
-            imgname = "img%02d_%05i.%s" % (pno+1, xref, image["ext"])
-            images.append((imgname, pno+1, width, height))
-            imgfile = os.path.join(imgdir,  imgname)
+            imgname = "img%02d_%05i.%s" % (pno + 1, xref, image["ext"])
+            images.append((imgname, pno + 1, width, height))
+            imgfile = os.path.join(imgdir, imgname)
             fout = open(imgfile, "wb")
             fout.write(imgdata)
             fout.close()
@@ -118,6 +114,7 @@ def extract_images_from_pdf(fname, imgdir="./output", min_width=400, min_height=
     print(len(xreflist), "images extracted")
     print("total time %g sec" % (t1 - t0))
     return xreflist, imglist, images
+
 
 def get_half(fname):
     # Open the PDF file
@@ -139,23 +136,22 @@ def get_half(fname):
     return im_cropped
 
 
-
 def make_md(f, dirname, filename, nimages=3, keywords=[]):
     path = f"{dirname}/{filename}"
     with open(path, "r") as fin:
         xml = fin.read()
         xml_lower = xml.lower()
-        if (keywords is not None) and not(any([k.lower() in xml_lower for k in keywords])):
+        if (keywords is not None) and not (any([k.lower() in xml_lower for k in keywords])):
             return
-    dict = xmltodict.parse(xml)['paper']
+    dict = xmltodict.parse(xml)["paper"]
     print(dict)
-    f.write('\n---\n')
-    f.write('<!-- _class: title -->\n')
+    f.write("\n---\n")
+    f.write("<!-- _class: title -->\n")
     f.write(f"# {dict['title_jp']}\n")
     f.write(f"{dict['title']}\n")
-    #authors = ",".join(dict['authors']['item'])
-    #f.write(f"{authors}\n")
-    f.write(f"[{dict['year']}] {dict['keywords']} {dict['entry_id']}\n") 
+    # authors = ",".join(dict['authors']['item'])
+    # f.write(f"{authors}\n")
+    f.write(f"[{dict['year']}] {dict['keywords']} {dict['entry_id']}\n")
     f.write(f"__課題__ {dict['problem']}\n")
     f.write(f"__手法__ {dict['method']}\n")
     f.write(f"__結果__ {dict['result']}\n")
@@ -163,30 +159,34 @@ def make_md(f, dirname, filename, nimages=3, keywords=[]):
     pdfname = f"{dirname}/paper.pdf"
     img_cropped = get_half(pdfname)
     img_cropped.save(f"{dirname}/half.png", "PNG")
-    
+
     f.write("\n---\n")
-    f.write('<!-- _class: info -->\n') 
-    f.write(f'![width:1400]({dirname}/half.png)\n')
+    f.write("<!-- _class: info -->\n")
+    f.write(f"![width:1400]({dirname}/half.png)\n")
 
     # get images
     _, _, image_list = extract_images_from_pdf(pdfname, imgdir=dirname)
-    images = [{'src':imgname, 'pno':str(pno), 'width':str(width), 'height':str(height)} for imgname, pno, width, height in image_list]
+    images = [
+        {"src": imgname, "pno": str(pno), "width": str(width), "height": str(height)}
+        for imgname, pno, width, height in image_list
+    ]
     for img in images[:nimages]:
-        src = img['src']
-        width = (int)(img['width'])
-        height = (int)(img['height'])
+        src = img["src"]
+        width = (int)(img["width"])
+        height = (int)(img["height"])
         print("#### img", src, width, height)
         x_ratio = (1600.0 * 0.7) / (float)(width)
         y_ratio = (900.0 * 0.7) / (float)(height)
         ratio = min(x_ratio, y_ratio)
 
         f.write("\n---\n")
-        f.write('<!-- _class: info -->\n') 
-        f.write(f'![width:{(int)(ratio * width)}]({dirname}/{src})\n')
+        f.write("<!-- _class: info -->\n")
+        f.write(f"![width:{(int)(ratio * width)}]({dirname}/{src})\n")
+
 
 def main(dir="./xmrs", output="./out.md", keywords=[]):
     print("### dir", dir, "output", output, "keywords", keywords)
-    xmlfiles= glob.glob(f"{dir}/*/*.xml")
+    xmlfiles = glob.glob(f"{dir}/*/*.xml")
     with open(output, "w") as f:
         f.write("---\n")
         f.write("marp: true\n")
@@ -194,10 +194,10 @@ def main(dir="./xmrs", output="./out.md", keywords=[]):
         f.write("size: 16:9\n")
         f.write("paginate: true\n")
         f.write('_class: ["cool-theme"]\n')
-        f.write('\n---\n')
-        f.write(f'# {keywords} on arXiv\n')
-        f.write('automatically generated by ChatGPT\n')
-        f.write('\n')
+        f.write("\n---\n")
+        f.write(f"# {keywords} on arXiv\n")
+        f.write("automatically generated by ChatGPT\n")
+        f.write("\n")
 
         for file in xmlfiles:
             dirname, filename = os.path.split(file)
@@ -205,13 +205,14 @@ def main(dir="./xmrs", output="./out.md", keywords=[]):
             make_md(f, dirname, filename, keywords=keywords)
     print("### result stored in", output)
 
+
 import argparse
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dir', "-d", type=str, help='xml dir', default='./xmls')
-    parser.add_argument('--output', "-o", type=str, default='output.md', help='output markdown file')
-    parser.add_argument('positional_args', nargs='?', help='query keywords')
+    parser.add_argument("--dir", "-d", type=str, help="xml dir", default="./xmls")
+    parser.add_argument("--output", "-o", type=str, default="output.md", help="output markdown file")
+    parser.add_argument("positional_args", nargs="?", help="query keywords")
     args = parser.parse_args()
 
     keywords = args.positional_args
@@ -219,5 +220,5 @@ if __name__ == "__main__":
         keywords = [keywords]
 
     print(args, keywords)
-    
+
     main(dir=args.dir, output=args.output, keywords=keywords)

@@ -1,0 +1,4 @@
+.venv/
+.env
+xmls/
+output.md
